@@ -4,254 +4,170 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EMI Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+    <!-- React + Babel + Tailwind -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      body {
-        font-family: "Poppins", sans-serif;
-      }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+
+  <body class="bg-gray-100 min-h-screen">
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useEffect } = React;
+      const { useState } = React;
 
-      const HomeIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.75L12 4.5l9 5.25M4.5 10.5v9.75h15V10.5M9 21v-6h6v6" />
-        </svg>
-      );
-
-      const BellIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 18.75a2.25 2.25 0 11-4.5 0m8.955-2.278A4.5 4.5 0 0118 10.5V8.25a6 6 0 10-12 0v2.25a4.5 4.5 0 01-.705 6.022l-.795.728h16.5l-.795-.728z" />
-        </svg>
-      );
-
-      const WalletIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12H7.5a1.5 1.5 0 010-3H21m0 3a3 3 0 01-3 3H6a3 3 0 01-3-3V9a3 3 0 013-3h12a3 3 0 013 3v3z" />
-        </svg>
-      );
-
-      const TrendingUpIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8" />
-        </svg>
-      );
-
-      const LogOutIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3H6.75A2.25 2.25 0 004.5 5.25v13.5A2.25 2.25 0 006.75 21H13.5a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-        </svg>
-      );
-
-      function EMIDashboard() {
-        const [isLoggedIn, setIsLoggedIn] = useState(false);
-        const [currentPage, setCurrentPage] = useState("dashboard");
-        const [loginError, setLoginError] = useState("");
-        const [emis, setEmis] = useState([]);
-        const [result, setResult] = useState(null);
-
-        const [username, setUsername] = useState("");
-        const [password, setPassword] = useState("");
-        const [income, setIncome] = useState("");
-        const [emi, setEmi] = useState("");
+      function App() {
+        const [monthlyIncome, setMonthlyIncome] = useState("");
+        const [emiAmount, setEmiAmount] = useState("");
         const [salaryDate, setSalaryDate] = useState("");
-        const [dueDate, setDueDate] = useState("");
+        const [emiDate, setEmiDate] = useState("");
+        const [risk, setRisk] = useState(null);
+        const [tab, setTab] = useState("home");
 
-        const handleLogin = () => {
-          if (username === "user" && password === "password") {
-            setIsLoggedIn(true);
-            setLoginError("");
-            localStorage.setItem("emiUser", username);
-          } else {
-            setLoginError("Invalid username or password");
-          }
-        };
-
-        const handleLogout = () => {
-          setIsLoggedIn(false);
-          setUsername("");
-          setPassword("");
-          setCurrentPage("dashboard");
-          localStorage.removeItem("emiUser");
-        };
-
-        const handleEMISubmit = () => {
-          const incomeVal = parseFloat(income);
-          const emiVal = parseFloat(emi);
-          const salaryDay = new Date(salaryDate).getDate();
-          const dueDay = new Date(dueDate).getDate();
-
-          let risk = "Low";
-          let reminder = "Payment should be safe.";
-          let topup = 0;
-
-          const days_gap = dueDay - salaryDay;
-          const ratio = emiVal / incomeVal;
-
-          if (ratio > 0.5 || days_gap < 3) {
-            risk = "High";
-            reminder = "Pay EMI immediately! Consider top-up.";
-            topup = Math.round(emiVal * 0.3);
-          } else if (ratio > 0.3) {
-            risk = "Medium";
-            reminder = "Pay EMI on time.";
-          }
-
-          const newEMI = { emi: emiVal, dueDate, risk, topup, reminder };
-          setEmis([...emis, newEMI]);
-          setResult(newEMI);
-          setIncome("");
-          setEmi("");
-          setSalaryDate("");
-          setDueDate("");
-        };
-
-        useEffect(() => {
-          const savedUser = localStorage.getItem("emiUser");
-          if (savedUser) {
-            setUsername(savedUser);
-            setIsLoggedIn(true);
-          }
-        }, []);
-
-        if (!isLoggedIn) {
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center p-4">
-              <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-10 w-full max-w-md border border-white/20">
-                <div className="text-center mb-8">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl mb-4 shadow-lg text-white">
-                    <WalletIcon />
-                  </div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                    EMI Dashboard
-                  </h1>
-                  <p className="text-gray-600">Manage your finances smartly</p>
-                </div>
-
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder="Enter username"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder="Enter password"
-                    />
-                  </div>
-                  <button
-                    onClick={handleLogin}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg"
-                  >
-                    Sign In
-                  </button>
-                  {loginError && (
-                    <p className="text-red-500 text-sm font-medium text-center mt-2">{loginError}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
+        function predictRisk() {
+          if (!monthlyIncome || !emiAmount) return alert("Please enter all fields");
+          const ratio = parseFloat(emiAmount) / parseFloat(monthlyIncome);
+          if (ratio > 0.5) setRisk("High Risk 😨");
+          else if (ratio > 0.3) setRisk("Medium Risk 😐");
+          else setRisk("Low Risk 😄");
         }
 
-        const totalEMIs = emis.length;
-        const highRiskCount = emis.filter((e) => e.risk === "High").length;
-        const totalTopup = emis.reduce((sum, e) => sum + e.topup, 0);
-
         return (
-          <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-xl">
-              <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className="bg-white/20 p-3 rounded-xl text-white"><WalletIcon /></div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-white">Welcome, {username} 👋</h1>
-                    <p className="text-indigo-100 text-sm">Smart financial management</p>
-                  </div>
-                </div>
+          <div className="flex flex-col min-h-screen">
+            {/* Header */}
+            <header className="bg-gradient-to-r from-purple-600 to-pink-500 text-white py-6 px-8 shadow-lg flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold">Welcome, Joshna 👋</h1>
+                <p className="text-sm opacity-90">Smart financial management</p>
+              </div>
+              <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-white text-sm">
+                Logout
+              </button>
+            </header>
+
+            {/* Tabs */}
+            <div className="flex justify-center gap-8 bg-white shadow-md rounded-2xl mx-auto mt-6 w-11/12 max-w-3xl">
+              {["home", "reminders", "topup", "profile"].map((item) => (
                 <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl transition"
+                  key={item}
+                  onClick={() => setTab(item)}
+                  className={`py-3 flex-1 rounded-2xl font-medium ${
+                    tab === item
+                      ? "bg-gradient-to-r from-purple-600 to-pink-500 text-white"
+                      : "text-gray-600 hover:text-purple-600"
+                  }`}
                 >
-                  <LogOutIcon />
-                  Logout
+                  {item === "home" && "🏠 Home"}
+                  {item === "reminders" && "🔔 Reminders"}
+                  {item === "topup" && "📈 Top-Up"}
+                  {item === "profile" && "👤 Profile"}
                 </button>
-              </div>
+              ))}
             </div>
 
-            <div className="max-w-7xl mx-auto px-6 mt-6">
-              <div className="bg-white rounded-2xl shadow-md flex justify-around py-3">
-                {[
-                  ["dashboard", <HomeIcon />, "Home"],
-                  ["reminders", <BellIcon />, "Reminders"],
-                  ["topup", <TrendingUpIcon />, "Top-Up"],
-                  ["profile", <WalletIcon />, "Profile"],
-                ].map(([page, icon, label]) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`flex items-center gap-2 px-5 py-2 font-semibold rounded-xl transition-all ${
-                      currentPage === page
-                        ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
-                        : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {icon} {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Main Content */}
+            <main className="flex-grow flex justify-center items-start py-8">
+              <div className="bg-white rounded-2xl shadow-lg p-8 w-11/12 max-w-3xl">
+                {tab === "home" && (
+                  <>
+                    <h2 className="text-2xl font-bold mb-4 text-gray-800">EMI Risk Predictor</h2>
+                    <p className="text-gray-500 mb-6">Predict EMI risks and plan wisely.</p>
 
-            <div className="max-w-7xl mx-auto p-6">
-              {currentPage === "dashboard" && (
-                <div className="text-gray-800">
-                  <h2 className="text-3xl font-bold mb-4">EMI Risk Predictor</h2>
-                  <p className="mb-6 text-gray-600">Predict EMI risks and plan wisely.</p>
-                </div>
-              )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-gray-700 mb-2">💰 Monthly Income (₹)</label>
+                        <input
+                          type="number"
+                          value={monthlyIncome}
+                          onChange={(e) => setMonthlyIncome(e.target.value)}
+                          placeholder="Enter your monthly income"
+                          className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-purple-400 outline-none"
+                        />
+                      </div>
 
-              {currentPage === "profile" && (
-                <div className="bg-white rounded-2xl shadow-lg p-8">
-                  <h2 className="text-3xl font-bold text-gray-800 mb-6">My Profile</h2>
-                  <div className="space-y-4 text-gray-700">
-                    <p><strong>👤 Name:</strong> {username}</p>
-                    <p><strong>💳 Account No:</strong> 9810-XXXX-45</p>
-                    <p><strong>🏦 Bank:</strong> Digital Trust Bank</p>
-                    <p><strong>📅 Member since:</strong> 2024</p>
-                    <p><strong>📊 EMIs Recorded:</strong> {totalEMIs}</p>
-                    <p><strong>⚠️ High Risk Count:</strong> {highRiskCount}</p>
-                    <p><strong>💰 Suggested Top-Up:</strong> ₹{totalTopup}</p>
+                      <div>
+                        <label className="block text-gray-700 mb-2">🏦 EMI Amount (₹)</label>
+                        <input
+                          type="number"
+                          value={emiAmount}
+                          onChange={(e) => setEmiAmount(e.target.value)}
+                          placeholder="Enter EMI amount"
+                          className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-purple-400 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-gray-700 mb-2">📅 Salary Date</label>
+                        <input
+                          type="date"
+                          value={salaryDate}
+                          onChange={(e) => setSalaryDate(e.target.value)}
+                          className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-purple-400 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-gray-700 mb-2">📆 EMI Due Date</label>
+                        <input
+                          type="date"
+                          value={emiDate}
+                          onChange={(e) => setEmiDate(e.target.value)}
+                          className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-purple-400 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-center mt-8">
+                      <button
+                        onClick={predictRisk}
+                        className="bg-gradient-to-r from-purple-600 to-pink-500 text-white px-6 py-3 rounded-xl font-semibold hover:scale-105 transition"
+                      >
+                        🚀 Predict Risk
+                      </button>
+
+                      {risk && (
+                        <div className="mt-6 text-xl font-semibold text-gray-700">
+                          Result: <span className="text-purple-600">{risk}</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {tab === "reminders" && (
+                  <div className="text-center text-gray-700">
+                    <h2 className="text-2xl font-bold mb-3">Reminders ⏰</h2>
+                    <p>Your upcoming EMI due dates will appear here.</p>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+
+                {tab === "topup" && (
+                  <div className="text-center text-gray-700">
+                    <h2 className="text-2xl font-bold mb-3">Top-Up 📈</h2>
+                    <p>Track your top-ups and manage repayments efficiently.</p>
+                  </div>
+                )}
+
+                {tab === "profile" && (
+                  <div className="text-center text-gray-700">
+                    <h2 className="text-2xl font-bold mb-3">Profile 👤</h2>
+                    <p>
+                      User: <strong>Joshna</strong>
+                    </p>
+                    <p>Email: joshna@example.com</p>
+                    <p>Plan: Premium</p>
+                  </div>
+                )}
+              </div>
+            </main>
           </div>
         );
       }
 
       const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<EMIDashboard />);
+      root.render(<App />);
     </script>
   </body>
 </html>
