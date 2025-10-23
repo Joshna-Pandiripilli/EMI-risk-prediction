@@ -1,23 +1,520 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EMI Dashboard</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EMI Dashboard</title>
 
-    <!-- React + Babel + Tailwind -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-  <body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div id="root"></div>
+  <!-- React + ReactDOM (production works fine) and Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
 
-    <script type="text/babel">
-      const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<App />);
-    </script>
-  </body>
+  <div id="root" class="w-full"></div>
+
+  <!-- Your app (JSX) — paste of your app.js content adapted for browser Babel -->
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Icons
+    const WalletIcon = () => (
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path>
+      </svg>
+    );
+
+    const HomeIcon = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+    );
+
+    const BellIcon = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+      </svg>
+    );
+
+    const TrendingUpIcon = () => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+        <polyline points="17 6 23 6 23 12"></polyline>
+      </svg>
+    );
+
+    const LogOutIcon = () => (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    );
+
+    const DollarSignIcon = () => (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <line x1="12" y1="1" x2="12" y2="23"></line>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+      </svg>
+    );
+
+    const AlertCircleIcon = () => (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    );
+
+    const CalendarIcon = () => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+    );
+
+    const CheckCircleIcon = () => (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    );
+
+    const AlertTriangleIcon = () => (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    );
+
+    // EMIDashboard component (your code)
+    function EMIDashboard() {
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [currentPage, setCurrentPage] = useState('dashboard');
+      const [loginError, setLoginError] = useState('');
+      const [emis, setEmis] = useState([]);
+      const [result, setResult] = useState(null);
+
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [income, setIncome] = useState('');
+      const [emi, setEmi] = useState('');
+      const [salaryDate, setSalaryDate] = useState('');
+      const [dueDate, setDueDate] = useState('');
+
+      const handleLogin = () => {
+        if (username === 'user' && password === 'password') {
+          setIsLoggedIn(true);
+          setLoginError('');
+        } else {
+          setLoginError('Invalid username or password');
+        }
+      };
+
+      const handleLogout = () => {
+        setIsLoggedIn(false);
+        setUsername('');
+        setPassword('');
+        setCurrentPage('dashboard');
+      };
+
+      const handleEMISubmit = () => {
+        const incomeVal = parseFloat(income);
+        const emiVal = parseFloat(emi);
+        const salaryDay = new Date(salaryDate).getDate();
+        const dueDay = new Date(dueDate).getDate();
+        const dueDateFull = dueDate;
+
+        let risk = 'Low';
+        let reminder = 'Payment should be safe.';
+        let topup = 0;
+
+        const days_gap = dueDay - salaryDay;
+        const ratio = emiVal / incomeVal;
+
+        if (ratio > 0.5 || days_gap < 3) {
+          risk = 'High';
+          reminder = 'Pay EMI immediately! Consider top-up.';
+          topup = Math.round(emiVal * 0.3);
+        } else if (ratio > 0.3) {
+          risk = 'Medium';
+          reminder = 'Pay EMI on time.';
+        }
+
+        const newEMI = { emi: emiVal, dueDate: dueDateFull, risk, topup, reminder };
+        setEmis([...emis, newEMI]);
+        setResult(newEMI);
+
+        setIncome('');
+        setEmi('');
+        setSalaryDate('');
+        setDueDate('');
+      };
+
+      if (!isLoggedIn) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center p-4 relative overflow-hidden">
+            <div className="absolute top-20 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+            <div className="absolute bottom-20 right-20 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
+
+            <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-10 w-full max-w-md relative z-10 border border-white/20">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl mb-4 shadow-lg text-white">
+                  <WalletIcon />
+                </div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                  EMI Dashboard
+                </h1>
+                <p className="text-gray-600">Manage your finances smartly</p>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                    placeholder="Enter username"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                    placeholder="Enter password"
+                  />
+                </div>
+                <button
+                  onClick={handleLogin}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  Sign In
+                </button>
+              </div>
+
+              {loginError && (
+                <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded-lg">
+                  <p className="text-red-700 text-sm font-medium">{loginError}</p>
+                </div>
+              )}
+
+              <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+                <p className="text-sm text-gray-700 font-semibold mb-3 text-center">Demo Credentials</p>
+                <div className="flex gap-2 items-center justify-center mb-3">
+                  <code className="bg-white px-4 py-2 rounded-lg border-2 border-indigo-200 font-mono text-sm">user</code>
+                  <span className="text-gray-400">/</span>
+                  <code className="bg-white px-4 py-2 rounded-lg border-2 border-indigo-200 font-mono text-sm">password</code>
+                </div>
+                <button
+                  onClick={() => {
+                    setUsername('user');
+                    setPassword('password');
+                  }}
+                  className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium hover:underline transition-all"
+                >
+                  ✨ Click to auto-fill credentials
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const totalEMIs = emis.length;
+      const highRiskCount = emis.filter(e => e.risk === 'High').length;
+      const totalTopup = emis.reduce((sum, e) => sum + e.topup, 0);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-xl">
+            <div className="max-w-7xl mx-auto px-6 py-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl text-white">
+                    <WalletIcon />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">EMI Dashboard</h1>
+                    <p className="text-indigo-100 text-sm">Smart financial management</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl transition-all"
+                >
+                  <LogOutIcon />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Total EMIs</p>
+                    <p className="text-3xl font-bold text-gray-800 mt-1">{totalEMIs}</p>
+                  </div>
+                  <div className="bg-blue-100 p-4 rounded-xl text-blue-600">
+                    <DollarSignIcon />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-red-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">High Risk</p>
+                    <p className="text-3xl font-bold text-gray-800 mt-1">{highRiskCount}</p>
+                  </div>
+                  <div className="bg-red-100 p-4 rounded-xl text-red-600">
+                    <AlertCircleIcon />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Total Top-Up</p>
+                    <p className="text-3xl font-bold text-gray-800 mt-1">₹{totalTopup}</p>
+                  </div>
+                  <div className="bg-purple-100 p-4 rounded-xl text-purple-600">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                      <polyline points="17 6 23 6 23 12"></polyline>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg p-2 mb-8">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage('dashboard')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${currentPage === 'dashboard' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <HomeIcon />
+                  Home
+                </button>
+                <button
+                  onClick={() => setCurrentPage('reminders')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${currentPage === 'reminders' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <BellIcon />
+                  Reminders
+                </button>
+                <button
+                  onClick={() => setCurrentPage('topup')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${currentPage === 'topup' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <TrendingUpIcon />
+                  Top-Up
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              {currentPage === 'dashboard' && (
+                <div>
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-3 rounded-xl text-white">
+                      <CalendarIcon />
+                    </div>
+                    <h2 className="text-3xl font-bold text-gray-800">EMI Risk Predictor</h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">💰 Monthly Income (₹)</label>
+                      <input
+                        type="number"
+                        value={income}
+                        onChange={(e) => setIncome(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Enter your monthly income"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">💳 EMI Amount (₹)</label>
+                      <input
+                        type="number"
+                        value={emi}
+                        onChange={(e) => setEmi(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Enter EMI amount"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">📅 Salary Date</label>
+                      <input
+                        type="date"
+                        value={salaryDate}
+                        onChange={(e) => setSalaryDate(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">📆 EMI Due Date</label>
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleEMISubmit}
+                    disabled={!income || !emi || !salaryDate || !dueDate}
+                    className="w-full mt-8 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    🔮 Predict Risk
+                  </button>
+
+                  {result && (
+                    <div className={`mt-8 p-6 rounded-2xl border-2 shadow-lg ${ result.risk === 'High' ? 'border-red-300 bg-gradient-to-br from-red-50 to-red-100' : result.risk === 'Medium' ? 'border-yellow-300 bg-gradient-to-br from-yellow-50 to-yellow-100' : 'border-green-300 bg-gradient-to-br from-green-50 to-green-100' }`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={result.risk === 'High' ? 'text-red-600' : result.risk === 'Medium' ? 'text-yellow-600' : 'text-green-600'}>
+                          {result.risk === 'High' && <AlertCircleIcon />}
+                          {result.risk === 'Medium' && <AlertTriangleIcon />}
+                          {result.risk === 'Low' && <CheckCircleIcon />}
+                        </div>
+                        <span className={`font-bold text-2xl ${ result.risk === 'High' ? 'text-red-700' : result.risk === 'Medium' ? 'text-yellow-700' : 'text-green-700' }`}>
+                          Risk Level: {result.risk}
+                        </span>
+                      </div>
+                      <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 space-y-2">
+                        <p className="text-gray-800 font-medium"><strong>📋 Reminder:</strong> {result.reminder}</p>
+                        {result.topup > 0 && (
+                          <p className="text-gray-800 font-medium"><strong>💵 Suggested Top-Up:</strong> ₹{result.topup}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {currentPage === 'reminders' && (
+                <div>
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-3 rounded-xl text-white">
+                      <BellIcon />
+                    </div>
+                    <h2 className="text-3xl font-bold text-gray-800">EMI Reminders</h2>
+                  </div>
+
+                  {emis.length === 0 ? (
+                    <div className="text-center py-16">
+                      <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4 text-gray-400">
+                        <BellIcon />
+                      </div>
+                      <p className="text-gray-500 text-lg">No EMI reminders yet.</p>
+                      <p className="text-gray-400 mt-2">Add one from the dashboard to get started!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {emis.map((e, idx) => (
+                        <div key={idx} className={`p-6 rounded-2xl border-2 hover:shadow-xl transition-all ${ e.risk === 'High' ? 'border-red-200 bg-red-50' : e.risk === 'Medium' ? 'border-yellow-200 bg-yellow-50' : 'border-green-200 bg-green-50' }`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg ${ e.risk === 'High' ? 'bg-red-200 text-red-700' : e.risk === 'Medium' ? 'bg-yellow-200 text-yellow-700' : 'bg-green-200 text-green-700' }`}>
+                                <DollarSignIcon />
+                              </div>
+                              <div>
+                                <span className="font-bold text-xl text-gray-800">₹{e.emi}</span>
+                                <p className="text-sm text-gray-600">Due: {e.dueDate}</p>
+                              </div>
+                            </div>
+                            <span className={`px-4 py-2 rounded-full text-sm font-bold ${ e.risk === 'High' ? 'bg-red-200 text-red-800' : e.risk === 'Medium' ? 'bg-yellow-200 text-yellow-800' : 'bg-green-200 text-green-800' }`}>
+                              {e.risk}
+                            </span>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3">
+                            <p className="text-sm text-gray-700 font-medium">{e.reminder}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {currentPage === 'topup' && (
+                <div>
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-3 rounded-xl text-white">
+                      <TrendingUpIcon />
+                    </div>
+                    <h2 className="text-3xl font-bold text-gray-800">Top-Up Suggestions</h2>
+                  </div>
+
+                  {emis.filter(e => e.topup > 0).length === 0 ? (
+                    <div className="text-center py-16">
+                      <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4 text-green-600">
+                        <CheckCircleIcon />
+                      </div>
+                      <p className="text-gray-500 text-lg">No top-up suggestions!</p>
+                      <p className="text-gray-400 mt-2">Your EMIs are looking good.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {emis.filter(e => e.topup > 0).map((e, idx) => (
+                        <div key={idx} className="p-6 rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-50 to-orange-50 hover:shadow-xl transition-all">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-red-200 p-2 rounded-lg text-red-700">
+                                <AlertCircleIcon />
+                              </div>
+                              <span className="font-bold text-xl text-gray-800">EMI ₹{e.emi}</span>
+                            </div>
+                            <span className="px-4 py-2 rounded-full text-sm font-bold bg-red-200 text-red-800">
+                              {e.risk} Risk
+                            </span>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4">
+                            <p className="text-gray-800 font-bold text-lg">
+                              💵 Suggested Top-Up: <span className="text-red-700">₹{e.topup}</span>
+                            </p>
+                            <p className="text-sm text-gray-600 mt-2">Consider adding this amount to avoid payment issues.</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Render the app
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<EMIDashboard />);
+  </script>
+</body>
 </html>
