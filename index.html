@@ -1,432 +1,525 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>EMI Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* small style tweak */
-    .card { border-radius: 14px; box-shadow: 0 6px 18px rgba(15,23,42,.06); }
-    .btn { transition: transform .12s ease, box-shadow .12s ease; }
-    .btn:active { transform: translateY(1px); }
-  </style>
-</head>
-<body class="bg-gray-100 min-h-screen text-gray-800">
+const { useState } = React;
 
-<div id="app" class="min-h-screen"></div>
+// Lucide icons as simple SVG components
+const WalletIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path>
+  </svg>
+);
 
-<script>
-/* ---------- Storage helpers ---------- */
-const STORAGE_USERS = 'emi_users_v1';
-const STORAGE_LOGGED = 'emi_logged_v1';
+const HomeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+  </svg>
+);
 
-function loadUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_USERS) || '{}');
-  } catch (e) { return {}; }
-}
-function saveUsers(u) { localStorage.setItem(STORAGE_USERS, JSON.stringify(u)); }
-function getLogged() { return localStorage.getItem(STORAGE_LOGGED); }
-function setLogged(username) { if (username) localStorage.setItem(STORAGE_LOGGED, username); else localStorage.removeItem(STORAGE_LOGGED); }
+const BellIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+  </svg>
+);
 
-/* ---------- Utility ---------- */
-function q(selector, root=document) { return root.querySelector(selector); }
-function qAll(selector, root=document) { return Array.from(root.querySelectorAll(selector)); }
-function maskAccount(acc) { if (!acc) return '—'; const s = String(acc); return '****' + s.slice(-4); }
-function formatDateISO(d) { if (!d) return '—'; const date = new Date(d); if (isNaN(date)) return '—'; return date.toISOString().slice(0,10); }
+const TrendingUpIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+    <polyline points="17 6 23 6 23 12"></polyline>
+  </svg>
+);
 
-/* risk: uses income, emi, salaryDate, dueDate */
-function computeRisk(income, emi, salaryDate, dueDate) {
-  if (!income || !emi || !salaryDate || !dueDate) return { risk: 'Unknown' };
-  const ratio = Number(emi) / Number(income);
-  const s = new Date(salaryDate), d = new Date(dueDate);
-  const gap = Math.round((d - s) / (1000*60*60*24));
-  let risk = 'Low';
-  if (ratio > 0.5 || gap < 3) risk = 'High';
-  else if (ratio > 0.3) risk = 'Medium';
-  return { risk, ratio, gap };
-}
+const LogOutIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+    <polyline points="16 17 21 12 16 7"></polyline>
+    <line x1="21" y1="12" x2="9" y2="12"></line>
+  </svg>
+);
 
-/* ---------- App root ---------- */
-const app = document.getElementById('app');
+const DollarSignIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="12" y1="1" x2="12" y2="23"></line>
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+  </svg>
+);
 
-/* ---------- Render functions ---------- */
+const AlertCircleIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="12" y1="8" x2="12" y2="12"></line>
+    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+  </svg>
+);
 
-function render() {
-  const logged = getLogged();
-  if (!logged) {
-    renderAuth();
-  } else {
-    const users = loadUsers();
-    const u = users[logged];
-    if (!u) { setLogged(null); renderAuth(); return; }
-    renderDashboard(u);
+const CalendarIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+    <line x1="16" y1="2" x2="16" y2="6"></line>
+    <line x1="8" y1="2" x2="8" y2="6"></line>
+    <line x1="3" y1="10" x2="21" y2="10"></line>
+  </svg>
+);
+
+const CheckCircleIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+  </svg>
+);
+
+const AlertTriangleIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+    <line x1="12" y1="9" x2="12" y2="13"></line>
+    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+  </svg>
+);
+
+function EMIDashboard() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [loginError, setLoginError] = useState('');
+  const [emis, setEmis] = useState([]);
+  const [result, setResult] = useState(null);
+  
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [income, setIncome] = useState('');
+  const [emi, setEmi] = useState('');
+  const [salaryDate, setSalaryDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
+
+  const handleLogin = () => {
+    if (username === 'user' && password === 'password') {
+      setIsLoggedIn(true);
+      setLoginError('');
+    } else {
+      setLoginError('Invalid username or password');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUsername('');
+    setPassword('');
+    setCurrentPage('dashboard');
+  };
+
+  const handleEMISubmit = () => {
+    const incomeVal = parseFloat(income);
+    const emiVal = parseFloat(emi);
+    const salaryDay = new Date(salaryDate).getDate();
+    const dueDay = new Date(dueDate).getDate();
+    const dueDateFull = dueDate;
+
+    let risk = 'Low';
+    let reminder = 'Payment should be safe.';
+    let topup = 0;
+
+    const days_gap = dueDay - salaryDay;
+    const ratio = emiVal / incomeVal;
+
+    if (ratio > 0.5 || days_gap < 3) {
+      risk = 'High';
+      reminder = 'Pay EMI immediately! Consider top-up.';
+      topup = Math.round(emiVal * 0.3);
+    } else if (ratio > 0.3) {
+      risk = 'Medium';
+      reminder = 'Pay EMI on time.';
+    }
+
+    const newEMI = { emi: emiVal, dueDate: dueDateFull, risk, topup, reminder };
+    setEmis([...emis, newEMI]);
+    setResult(newEMI);
+    
+    setIncome('');
+    setEmi('');
+    setSalaryDate('');
+    setDueDate('');
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute top-20 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+        <div className="absolute bottom-20 right-20 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-10 w-full max-w-md relative z-10 border border-white/20">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl mb-4 shadow-lg text-white">
+              <WalletIcon />
+            </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              EMI Dashboard
+            </h1>
+            <p className="text-gray-600">Manage your finances smartly</p>
+          </div>
+          
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                placeholder="Enter username"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                placeholder="Enter password"
+              />
+            </div>
+            <button
+              onClick={handleLogin}
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              Sign In
+            </button>
+          </div>
+          
+          {loginError && (
+            <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded-lg">
+              <p className="text-red-700 text-sm font-medium">{loginError}</p>
+            </div>
+          )}
+          
+          <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+            <p className="text-sm text-gray-700 font-semibold mb-3 text-center">Demo Credentials</p>
+            <div className="flex gap-2 items-center justify-center mb-3">
+              <code className="bg-white px-4 py-2 rounded-lg border-2 border-indigo-200 font-mono text-sm">user</code>
+              <span className="text-gray-400">/</span>
+              <code className="bg-white px-4 py-2 rounded-lg border-2 border-indigo-200 font-mono text-sm">password</code>
+            </div>
+            <button
+              onClick={() => {
+                setUsername('user');
+                setPassword('password');
+              }}
+              className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium hover:underline transition-all"
+            >
+              ✨ Click to auto-fill credentials
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
-}
 
-/* ---------- AUTH (login/signup) ---------- */
-function renderAuth() {
-  app.innerHTML = `
-    <div class="min-h-screen flex items-center justify-center p-6 bg-gradient-to-r from-purple-600 to-pink-500">
-      <div class="w-full max-w-xl bg-white p-8 card">
-        <div class="flex items-center justify-between mb-6">
-          <h1 class="text-2xl font-bold">EMI Dashboard</h1>
-          <div class="text-sm text-gray-500" id="auth-mode-label">Login</div>
+  const totalEMIs = emis.length;
+  const highRiskCount = emis.filter(e => e.risk === 'High').length;
+  const totalTopup = emis.reduce((sum, e) => sum + e.topup, 0);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-xl">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl text-white">
+                <WalletIcon />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white">EMI Dashboard</h1>
+                <p className="text-indigo-100 text-sm">Smart financial management</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl transition-all"
+            >
+              <LogOutIcon />
+              Logout
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div id="auth-form" class="space-y-3">
-          <!-- form inserted by JS -->
-        </div>
-
-        <div class="mt-4 text-center">
-          <button id="auth-action" class="btn inline-flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold">Login</button>
-          <div class="mt-3 text-sm text-gray-600">
-            <span id="auth-switch-text">New here?</span>
-            <button id="switch-auth" class="text-purple-600 underline ml-2">Create account</button>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Total EMIs</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{totalEMIs}</p>
+              </div>
+              <div className="bg-blue-100 p-4 rounded-xl text-blue-600">
+                <DollarSignIcon />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-red-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">High Risk</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{highRiskCount}</p>
+              </div>
+              <div className="bg-red-100 p-4 rounded-xl text-red-600">
+                <AlertCircleIcon />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Total Top-Up</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">₹{totalTopup}</p>
+              </div>
+              <div className="bg-purple-100 p-4 rounded-xl text-purple-600">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                  <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
 
-        <p class="mt-4 text-xs text-gray-400">Demo: data stays in your browser (localStorage). Passwords are stored locally for demo only.</p>
+        <div className="bg-white rounded-2xl shadow-lg p-2 mb-8">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage('dashboard')}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                currentPage === 'dashboard'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <HomeIcon />
+              Home
+            </button>
+            <button
+              onClick={() => setCurrentPage('reminders')}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                currentPage === 'reminders'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <BellIcon />
+              Reminders
+            </button>
+            <button
+              onClick={() => setCurrentPage('topup')}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                currentPage === 'topup'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <TrendingUpIcon />
+              Top-Up
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          {currentPage === 'dashboard' && (
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-3 rounded-xl text-white">
+                  <CalendarIcon />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-800">EMI Risk Predictor</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">💰 Monthly Income (₹)</label>
+                  <input
+                    type="number"
+                    value={income}
+                    onChange={(e) => setIncome(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                    placeholder="Enter your monthly income"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">💳 EMI Amount (₹)</label>
+                  <input
+                    type="number"
+                    value={emi}
+                    onChange={(e) => setEmi(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                    placeholder="Enter EMI amount"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">📅 Salary Date</label>
+                  <input
+                    type="date"
+                    value={salaryDate}
+                    onChange={(e) => setSalaryDate(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">📆 EMI Due Date</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                  />
+                </div>
+              </div>
+              
+              <button
+                onClick={handleEMISubmit}
+                disabled={!income || !emi || !salaryDate || !dueDate}
+                className="w-full mt-8 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                🔮 Predict Risk
+              </button>
+
+              {result && (
+                <div className={`mt-8 p-6 rounded-2xl border-2 shadow-lg ${
+                  result.risk === 'High' ? 'border-red-300 bg-gradient-to-br from-red-50 to-red-100' :
+                  result.risk === 'Medium' ? 'border-yellow-300 bg-gradient-to-br from-yellow-50 to-yellow-100' :
+                  'border-green-300 bg-gradient-to-br from-green-50 to-green-100'
+                }`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={result.risk === 'High' ? 'text-red-600' : result.risk === 'Medium' ? 'text-yellow-600' : 'text-green-600'}>
+                      {result.risk === 'High' && <AlertCircleIcon />}
+                      {result.risk === 'Medium' && <AlertTriangleIcon />}
+                      {result.risk === 'Low' && <CheckCircleIcon />}
+                    </div>
+                    <span className={`font-bold text-2xl ${
+                      result.risk === 'High' ? 'text-red-700' :
+                      result.risk === 'Medium' ? 'text-yellow-700' :
+                      'text-green-700'
+                    }`}>
+                      Risk Level: {result.risk}
+                    </span>
+                  </div>
+                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 space-y-2">
+                    <p className="text-gray-800 font-medium"><strong>📋 Reminder:</strong> {result.reminder}</p>
+                    {result.topup > 0 && (
+                      <p className="text-gray-800 font-medium"><strong>💵 Suggested Top-Up:</strong> ₹{result.topup}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentPage === 'reminders' && (
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-3 rounded-xl text-white">
+                  <BellIcon />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-800">EMI Reminders</h2>
+              </div>
+              
+              {emis.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4 text-gray-400">
+                    <BellIcon />
+                  </div>
+                  <p className="text-gray-500 text-lg">No EMI reminders yet.</p>
+                  <p className="text-gray-400 mt-2">Add one from the dashboard to get started!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {emis.map((e, idx) => (
+                    <div key={idx} className={`p-6 rounded-2xl border-2 hover:shadow-xl transition-all ${
+                      e.risk === 'High' ? 'border-red-200 bg-red-50' :
+                      e.risk === 'Medium' ? 'border-yellow-200 bg-yellow-50' :
+                      'border-green-200 bg-green-50'
+                    }`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${
+                            e.risk === 'High' ? 'bg-red-200 text-red-700' :
+                            e.risk === 'Medium' ? 'bg-yellow-200 text-yellow-700' :
+                            'bg-green-200 text-green-700'
+                          }`}>
+                            <DollarSignIcon />
+                          </div>
+                          <div>
+                            <span className="font-bold text-xl text-gray-800">₹{e.emi}</span>
+                            <p className="text-sm text-gray-600">Due: {e.dueDate}</p>
+                          </div>
+                        </div>
+                        <span className={`px-4 py-2 rounded-full text-sm font-bold ${
+                          e.risk === 'High' ? 'bg-red-200 text-red-800' :
+                          e.risk === 'Medium' ? 'bg-yellow-200 text-yellow-800' :
+                          'bg-green-200 text-green-800'
+                        }`}>
+                          {e.risk}
+                        </span>
+                      </div>
+                      <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3">
+                        <p className="text-sm text-gray-700 font-medium">{e.reminder}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentPage === 'topup' && (
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-3 rounded-xl text-white">
+                  <TrendingUpIcon />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-800">Top-Up Suggestions</h2>
+              </div>
+              
+              {emis.filter(e => e.topup > 0).length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4 text-green-600">
+                    <CheckCircleIcon />
+                  </div>
+                  <p className="text-gray-500 text-lg">No top-up suggestions!</p>
+                  <p className="text-gray-400 mt-2">Your EMIs are looking good.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {emis.filter(e => e.topup > 0).map((e, idx) => (
+                    <div key={idx} className="p-6 rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-50 to-orange-50 hover:shadow-xl transition-all">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-red-200 p-2 rounded-lg text-red-700">
+                            <AlertCircleIcon />
+                          </div>
+                          <span className="font-bold text-xl text-gray-800">EMI ₹{e.emi}</span>
+                        </div>
+                        <span className="px-4 py-2 rounded-full text-sm font-bold bg-red-200 text-red-800">
+                          {e.risk} Risk
+                        </span>
+                      </div>
+                      <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4">
+                        <p className="text-gray-800 font-bold text-lg">
+                          💵 Suggested Top-Up: <span className="text-red-700">₹{e.topup}</span>
+                        </p>
+                        <p className="text-sm text-gray-600 mt-2">Consider adding this amount to avoid payment issues.</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  `;
-
-  // default mode: login
-  let mode = 'login'; // 'login' or 'signup'
-  const authForm = document.getElementById('auth-form');
-  const authModeLabel = document.getElementById('auth-mode-label');
-  const authAction = document.getElementById('auth-action');
-  const switchAuth = document.getElementById('switch-auth');
-  const authSwitchText = document.getElementById('auth-switch-text');
-
-  function drawForm() {
-    if (mode === 'login') {
-      authModeLabel.textContent = 'Login';
-      authForm.innerHTML = `
-        <input id="login-username" placeholder="Username" class="w-full border p-3 rounded-lg" />
-        <input id="login-password" placeholder="Password" type="password" class="w-full border p-3 rounded-lg" />
-      `;
-      authAction.textContent = 'Login';
-      authSwitchText.textContent = 'New here?';
-      switchAuth.textContent = 'Create account';
-    } else {
-      authModeLabel.textContent = 'Create account';
-      authForm.innerHTML = `
-        <input id="s-username" placeholder="Choose a username" class="w-full border p-3 rounded-lg" />
-        <input id="s-name" placeholder="Full name" class="w-full border p-3 rounded-lg" />
-        <input id="s-email" placeholder="Email" class="w-full border p-3 rounded-lg" />
-        <div class="grid grid-cols-2 gap-2">
-          <input id="s-phone" placeholder="Phone (optional)" class="w-full border p-3 rounded-lg" />
-          <input id="s-bank" placeholder="Bank name (optional)" class="w-full border p-3 rounded-lg" />
-        </div>
-        <input id="s-acc" placeholder="Account number (optional)" class="w-full border p-3 rounded-lg" />
-        <div class="grid grid-cols-2 gap-2">
-          <input id="s-pass" placeholder="Password" type="password" class="w-full border p-3 rounded-lg" />
-          <input id="s-confirm" placeholder="Confirm password" type="password" class="w-full border p-3 rounded-lg" />
-        </div>
-      `;
-      authAction.textContent = 'Create account';
-      authSwitchText.textContent = 'Already have an account?';
-      switchAuth.textContent = 'Login';
-    }
-  }
-
-  function doLogin() {
-    const username = (q('#login-username') || {}).value || '';
-    const password = (q('#login-password') || {}).value || '';
-    if (!username || !password) { alert('Enter username & password'); return; }
-    const users = loadUsers();
-    if (!users[username]) { alert('User not found — please sign up'); return; }
-    if (users[username].password !== password) { alert('Wrong password'); return; }
-    setLogged(username);
-    render();
-  }
-
-  function doSignup() {
-    const username = (q('#s-username') || {}).value || '';
-    const name = (q('#s-name') || {}).value || '';
-    const email = (q('#s-email') || {}).value || '';
-    const phone = (q('#s-phone') || {}).value || '';
-    const bank = (q('#s-bank') || {}).value || '';
-    const acc = (q('#s-acc') || {}).value || '';
-    const pass = (q('#s-pass') || {}).value || '';
-    const confirm = (q('#s-confirm') || {}).value || '';
-    if (!username || !name || !email || !pass || !confirm) { alert('Please fill required fields'); return; }
-    if (pass !== confirm) { alert('Passwords do not match'); return; }
-    const users = loadUsers();
-    if (users[username]) { alert('Username already taken'); return; }
-    users[username] = { password: pass, name, email, phone, bankName: bank, accountNumber: acc, emis: [] };
-    saveUsers(users);
-    setLogged(username);
-    render();
-  }
-
-  drawForm();
-
-  switchAuth.addEventListener('click', () => {
-    mode = (mode === 'login' ? 'signup' : 'login');
-    drawForm();
-  });
-
-  authAction.addEventListener('click', () => {
-    if (mode === 'login') doLogin(); else doSignup();
-  });
-
-  // allow Enter key
-  authForm.addEventListener('keypress', (ev) => {
-    if (ev.key === 'Enter') authAction.click();
-  });
+  );
 }
 
-/* ---------- DASHBOARD ---------- */
-function renderDashboard(user) {
-  // build page
-  app.innerHTML = `
-    <div class="min-h-screen flex flex-col">
-      <header class="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-6">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 class="text-2xl font-bold">Welcome, ${escapeHtml(user.name || user.username)}</h1>
-            <p class="text-sm opacity-90">Smart EMI management</p>
-          </div>
-          <div class="flex items-center gap-3">
-            <button id="logoutBtn" class="bg-white/20 px-4 py-2 rounded-lg">Logout</button>
-          </div>
-        </div>
-      </header>
-
-      <main class="flex-1">
-        <div class="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          <!-- left / main -->
-          <section class="lg:col-span-2 space-y-6">
-            <div class="card bg-white p-6">
-              <div class="flex items-center justify-between mb-4">
-                <div>
-                  <h2 class="text-xl font-bold">EMI Risk Predictor</h2>
-                  <p class="text-sm text-gray-600">Add EMI details and save to your profile. Risk is computed from income ratio & date gap.</p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label class="text-sm text-gray-700">Monthly Income (₹)</label>
-                  <input id="inp-income" type="number" class="w-full border p-3 rounded mt-1" placeholder="Enter monthly income" />
-                </div>
-                <div>
-                  <label class="text-sm text-gray-700">EMI Amount (₹)</label>
-                  <input id="inp-emi" type="number" class="w-full border p-3 rounded mt-1" placeholder="Enter EMI amount" />
-                </div>
-                <div>
-                  <label class="text-sm text-gray-700">Salary Date</label>
-                  <input id="inp-salary" type="date" class="w-full border p-3 rounded mt-1" />
-                </div>
-                <div>
-                  <label class="text-sm text-gray-700">EMI Due Date</label>
-                  <input id="inp-due" type="date" class="w-full border p-3 rounded mt-1" />
-                </div>
-              </div>
-
-              <div class="mt-4 text-center">
-                <button id="btn-add-emi" class="btn bg-gradient-to-r from-purple-600 to-pink-500 text-white px-6 py-3 rounded-full font-semibold">🔮 Predict & Save</button>
-              </div>
-
-              <div id="last-pred" class="mt-4 text-center text-gray-700"></div>
-            </div>
-
-            <div id="reminders-card" class="card bg-white p-6">
-              <h3 class="text-lg font-semibold mb-3">Reminders</h3>
-              <div id="reminders-list" class="space-y-3"></div>
-            </div>
-
-            <div id="topup-card" class="card bg-white p-6">
-              <h3 class="text-lg font-semibold mb-3">Top-Up Suggestions</h3>
-              <div id="topup-list" class="space-y-3"></div>
-            </div>
-
-          </section>
-
-          <!-- right / sidebar -->
-          <aside class="space-y-6">
-            <div class="card bg-white p-6">
-              <h3 class="font-semibold text-lg mb-3">Profile</h3>
-              <p><strong>Name:</strong> ${escapeHtml(user.name || user.username)}</p>
-              <p><strong>Email:</strong> ${escapeHtml(user.email || '—')}</p>
-              <p><strong>Phone:</strong> ${escapeHtml(user.phone || '—')}</p>
-
-              <hr class="my-3" />
-
-              <h4 class="font-semibold">Bank</h4>
-              <p><strong>Bank:</strong> ${escapeHtml(user.bankName || '—')}</p>
-              <p><strong>Account:</strong> ${escapeHtml(maskAccount(user.accountNumber))}</p>
-
-              <hr class="my-3" />
-
-              <h4 class="font-semibold">EMI Overview</h4>
-              <p id="stat-total">Total EMIs: —</p>
-              <p id="stat-paid">Paid: —</p>
-              <p id="stat-remain">Remaining: —</p>
-              <p id="stat-last-emi">Last EMI Amount: —</p>
-
-              <hr class="my-3" />
-
-              <h4 class="font-semibold">Risk Status</h4>
-              <p id="stat-risk">Current Risk: —</p>
-              <p id="stat-next">Next Due Date: —</p>
-            </div>
-          </aside>
-
-        </div>
-      </main>
-    </div>
-  `;
-
-  // wire up logout
-  q('#logoutBtn').addEventListener('click', () => {
-    setLogged(null);
-    render();
-  });
-
-  // populate lists & summary
-  refreshProfileAndLists(user);
-
-  // add EMI handler
-  q('#btn-add-emi').addEventListener('click', () => {
-    const income = q('#inp-income').value.trim();
-    const emi = q('#inp-emi').value.trim();
-    const sDate = q('#inp-salary').value;
-    const dDate = q('#inp-due').value;
-    if (!income || !emi || !sDate || !dDate) { alert('Please fill all fields'); return; }
-    const { risk } = computeRisk(Number(income), Number(emi), sDate, dDate);
-    const users = loadUsers();
-    const u = users[user.username];
-    if (!u.emis) u.emis = [];
-    u.emis.unshift({ id: Date.now(), income: Number(income), emi: Number(emi), salaryDate: sDate, dueDate: dDate, paid: false, risk });
-    users[user.username] = u;
-    saveUsers(users);
-    // show last prediction text
-    q('#last-pred').textContent = `Last added EMI risk: ${risk}`;
-    // clear inputs
-    q('#inp-income').value = ''; q('#inp-emi').value = ''; q('#inp-salary').value = ''; q('#inp-due').value = '';
-    // refresh UI
-    refreshProfileAndLists(u);
-  });
-}
-
-/* ---------- utilities for dashboard refresh ---------- */
-function refreshProfileAndLists(user) {
-  const users = loadUsers();
-  const u = users[user.username] || user;
-
-  // summary
-  const total = (u.emis || []).length;
-  const paid = (u.emis || []).filter(x => x.paid).length;
-  const remain = total - paid;
-  const lastEmi = (u.emis && u.emis[0]) ? u.emis[0].emi : 0;
-  const currentRisk = (u.emis && u.emis[0]) ? u.emis[0].risk : '—';
-  const nextDue = (() => {
-    const unpaid = (u.emis || []).filter(x => !x.paid && x.dueDate).map(x => x.dueDate).sort();
-    return unpaid.length ? unpaid[0] : '—';
-  })();
-
-  // update sidebar stats
-  if (q('#stat-total')) q('#stat-total').textContent = `Total EMIs: ${total}`;
-  if (q('#stat-paid')) q('#stat-paid').textContent = `Paid: ${paid}`;
-  if (q('#stat-remain')) q('#stat-remain').textContent = `Remaining: ${remain}`;
-  if (q('#stat-last-emi')) q('#stat-last-emi').textContent = `Last EMI Amount: ₹${lastEmi}`;
-  if (q('#stat-risk')) q('#stat-risk').textContent = `Current Risk: ${currentRisk}`;
-  if (q('#stat-next')) q('#stat-next').textContent = `Next Due Date: ${nextDue}`;
-
-  // reminders list
-  const remList = q('#reminders-list');
-  if (remList) {
-    remList.innerHTML = '';
-    const emis = u.emis || [];
-    if (!emis.length) {
-      remList.innerHTML = '<p class="text-gray-500">No EMIs added yet. Add one from the form above.</p>';
-    } else {
-      emis.forEach(e => {
-        const wrap = document.createElement('div');
-        wrap.className = 'p-3 border rounded flex items-start justify-between bg-white';
-        wrap.innerHTML = `
-          <div>
-            <div class="text-sm"><strong>₹${e.emi}</strong> • ${escapeHtml(e.risk)} risk</div>
-            <div class="text-xs text-gray-500">Due: ${escapeHtml(e.dueDate)} • Salary: ${escapeHtml(e.salaryDate)}</div>
-            <div class="text-xs mt-1">Status: ${e.paid ? '<span class="text-green-600">Paid</span>' : '<span class="text-red-600">Unpaid</span>'}</div>
-          </div>
-          <div class="flex flex-col gap-2">
-            <button data-action="toggle" data-id="${e.id}" class="px-3 py-1 rounded bg-indigo-50 text-indigo-700 text-sm">${e.paid ? 'Mark unpaid' : 'Mark paid'}</button>
-            <button data-action="del" data-id="${e.id}" class="px-3 py-1 rounded bg-red-50 text-red-600 text-sm">Delete</button>
-          </div>
-        `;
-        remList.appendChild(wrap);
-      });
-    }
-    // attach listeners
-    remList.querySelectorAll('[data-action="toggle"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.id);
-        togglePaid(user.username, id);
-      });
-    });
-    remList.querySelectorAll('[data-action="del"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.id);
-        deleteEntry(user.username, id);
-      });
-    });
-  }
-
-  // top-up suggestions (High risk unpaid)
-  const topList = q('#topup-list');
-  if (topList) {
-    topList.innerHTML = '';
-    const suggestions = (u.emis || []).filter(e => !e.paid && e.risk === 'High');
-    if (!suggestions.length) {
-      topList.innerHTML = '<p class="text-gray-500">No top-up suggestions for now.</p>';
-    } else {
-      suggestions.forEach(s => {
-        const node = document.createElement('div');
-        node.className = 'p-3 border rounded bg-white';
-        const suggested = Math.round(s.emi * 0.3);
-        node.innerHTML = `<div>EMI ₹${s.emi} due ${escapeHtml(s.dueDate)}</div><div class="text-sm text-gray-600">Suggested top-up: <strong>₹${suggested}</strong></div>`;
-        topList.appendChild(node);
-      });
-    }
-  }
-}
-
-/* ---------- actions ---------- */
-function togglePaid(username, id) {
-  const users = loadUsers();
-  const u = users[username];
-  if (!u) return;
-  u.emis = u.emis.map(e => e.id === id ? {...e, paid: !e.paid} : e);
-  users[username] = u;
-  saveUsers(users);
-  render(); // re-render whole view to keep things simple
-}
-function deleteEntry(username, id) {
-  if (!confirm('Delete this EMI entry?')) return;
-  const users = loadUsers();
-  const u = users[username];
-  if (!u) return;
-  u.emis = u.emis.filter(e => e.id !== id);
-  users[username] = u;
-  saveUsers(users);
-  render();
-}
-
-/* ---------- small safety / escaping ---------- */
-function escapeHtml(s) {
-  if (s === null || s === undefined) return '';
-  return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-}
-
-/* ---------- initial render ---------- */
-render();
-
-</script>
-</body>
-</html>
+React
