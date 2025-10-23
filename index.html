@@ -3,16 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>EMI Risk Dashboard — Login</title>
+  <title>EMI Risk Dashboard</title>
 
-  <!-- Tailwind + React (CDN) + Babel -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-  </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
   <div id="root"></div>
@@ -20,551 +16,204 @@
   <script type="text/babel">
   const { useState, useEffect } = React;
 
-  // ---- LocalStorage helpers (simple user store) ----
-  function getUsers() {
-    try { return JSON.parse(localStorage.getItem("emi_users") || "{}"); } catch { return {}; }
-  }
-  function saveUsers(users) {
-    localStorage.setItem("emi_users", JSON.stringify(users));
-  }
-  function getLoggedIn() {
-    return localStorage.getItem("emi_logged_in_user") || null;
-  }
-  function setLoggedIn(username) {
-    if (username) localStorage.setItem("emi_logged_in_user", username);
-    else localStorage.removeItem("emi_logged_in_user");
-  }
+  const getUsers = () => JSON.parse(localStorage.getItem("emi_users") || "{}");
+  const saveUsers = (users) => localStorage.setItem("emi_users", JSON.stringify(users));
+  const getLoggedIn = () => localStorage.getItem("emi_logged_in_user");
+  const setLoggedIn = (u) => u ? localStorage.setItem("emi_logged_in_user", u) : localStorage.removeItem("emi_logged_in_user");
 
-  // mask account number
-  function maskAccount(acc) {
-    if (!acc) return "—";
-    const s = String(acc);
-    const last4 = s.slice(-4);
-    return "**** **** " + last4;
-  }
-
-  // compute risk from income/emi and date gap
-  function computeRisk(income, emi, salaryDate, dueDate) {
-    if (!income || !emi || !salaryDate || !dueDate) return { risk: null, reason: null };
-    const ratio = Number(emi) / Number(income);
-    const sal = new Date(salaryDate);
-    const due = new Date(dueDate);
-    const daysGap = Math.floor((due - sal) / (1000*60*60*24));
+  const maskAccount = (a) => a ? "****" + a.slice(-4) : "—";
+  const computeRisk = (income, emi, sDate, dDate) => {
+    if (!income || !emi || !sDate || !dDate) return { risk: "Unknown" };
+    const ratio = emi / income;
+    const gap = (new Date(dDate) - new Date(sDate)) / (1000 * 60 * 60 * 24);
     let risk = "Low";
-    if (ratio > 0.5 || daysGap < 3) risk = "High";
+    if (ratio > 0.5 || gap < 3) risk = "High";
     else if (ratio > 0.3) risk = "Medium";
-    return { risk, ratio, daysGap };
-  }
+    return { risk };
+  };
 
-  // ---- App ----
   function App() {
-    const [user, setUser] = useState(null); // { username, name, email, phone, bankName, accountNumber, emis: [...] }
-    const [modeSignup, setModeSignup] = useState(false);
-
-    // login/signup form
+    const [user, setUser] = useState(null);
+    const [isSignup, setIsSignup] = useState(false);
     const [form, setForm] = useState({
-      username: "", password: "", name: "", email: "", phone: "", bankName: "", accountNumber: "", confirm: ""
+      username:"", password:"", confirm:"", name:"", email:"", phone:"", bankName:"", accountNumber:""
     });
+    const [tab, setTab] = useState("home");
 
-    // load logged-in user on mount
     useEffect(() => {
       const logged = getLoggedIn();
       if (logged) {
         const users = getUsers();
         if (users[logged]) setUser({ username: logged, ...users[logged] });
-        else setLoggedIn(null);
       }
     }, []);
 
-    // Save back to storage whenever user object changes (except username)
     useEffect(() => {
       if (!user) return;
       const users = getUsers();
-      const copy = { ...user };
-      delete copy.username;
-      users[user.username] = copy;
+      const u = { ...user };
+      delete u.username;
+      users[user.username] = u;
       saveUsers(users);
       setLoggedIn(user.username);
     }, [user]);
 
-    // Sign up handler
-    function handleSignup() {
-      const { username, password, confirm, name, email, phone, bankName, accountNumber } = form;
-      if (!username || !password || !confirm || !name || !email) return alert("Please fill required fields");
-      if (password !== confirm) return alert("Passwords don't match");
+    const handleSignup = () => {
+      const { username, password, confirm, name, email } = form;
+      if (!username || !password || !confirm || !name || !email) return alert("Please fill all fields.");
+      if (password !== confirm) return alert("Passwords do not match.");
       const users = getUsers();
-      if (users[username]) return alert("Username already taken. Choose another.");
-      users[username] = {
-        password,
-        name,
-        email,
-        phone: phone || "Not provided",
-        bankName: bankName || "Not provided",
-        accountNumber: accountNumber || "",
-        emis: [] // empty EMI list
-      };
+      if (users[username]) return alert("Username already exists.");
+      users[username] = { password, name, email, phone: form.phone, bankName: form.bankName, accountNumber: form.accountNumber, emis: [] };
       saveUsers(users);
       setUser({ username, ...users[username] });
-      setForm({ username:"", password:"", name:"", email:"", phone:"", bankName:"", accountNumber:"", confirm:"" });
-      setModeSignup(false);
       setLoggedIn(username);
-    }
+    };
 
-    // Login handler
-    function handleLogin() {
+    const handleLogin = () => {
       const { username, password } = form;
-      if (!username || !password) return alert("Enter username & password");
       const users = getUsers();
-      if (!users[username]) return alert("User not found. Sign up first.");
-      if (users[username].password !== password) return alert("Incorrect password");
+      if (!users[username]) return alert("User not found.");
+      if (users[username].password !== password) return alert("Wrong password.");
       setUser({ username, ...users[username] });
-      setForm({ username:"", password:"", name:"", email:"", phone:"", bankName:"", accountNumber:"", confirm:"" });
       setLoggedIn(username);
-    }
+    };
 
-    // Logout
-    function handleLogout() {
-      setUser(null);
-      setLoggedIn(null);
-    }
+    const logout = () => { setUser(null); setLoggedIn(null); };
 
-    // Add EMI entry to current user
-    function addEMIEntry(income, emiAmt, salaryDate, dueDate) {
-      if (!user) return;
+    const addEmi = (income, emi, sDate, dDate) => {
+      const risk = computeRisk(+income, +emi, sDate, dDate).risk;
       const users = getUsers();
       const u = users[user.username];
-      if (!u) return;
-      const newEntry = {
-        id: Date.now(),
-        income: Number(income),
-        emi: Number(emiAmt),
-        salaryDate,
-        dueDate,
-        paid: false,
-        risk: computeRisk(income, emiAmt, salaryDate, dueDate).risk || "Not evaluated"
-      };
-      u.emis = u.emis || [];
-      u.emis.unshift(newEntry); // newest first
+      u.emis.unshift({ id: Date.now(), income, emi, salaryDate: sDate, dueDate: dDate, paid: false, risk });
       users[user.username] = u;
       saveUsers(users);
       setUser({ username: user.username, ...u });
-      return newEntry;
-    }
+    };
 
-    // mark paid/unpaid
-    function togglePaid(entryId) {
-      if (!user) return;
-      const users = getUsers();
-      const u = users[user.username];
-      u.emis = u.emis.map(e => e.id === entryId ? { ...e, paid: !e.paid } : e);
-      users[user.username] = u;
-      saveUsers(users);
-      setUser({ username: user.username, ...u });
-    }
-
-    // delete EMI
-    function deleteEntry(entryId) {
-      if (!user) return;
-      const users = getUsers();
-      const u = users[user.username];
-      u.emis = u.emis.filter(e => e.id !== entryId);
-      users[user.username] = u;
-      saveUsers(users);
-      setUser({ username: user.username, ...u });
-    }
-
-    // find next due date among unpaid
-    function nextDueDate() {
-      if (!user || !user.emis || user.emis.length === 0) return null;
-      const unpaid = user.emis.filter(e => !e.paid).map(e => new Date(e.dueDate)).filter(d => !isNaN(d));
-      if (unpaid.length === 0) return null;
-      unpaid.sort((a,b)=>a-b);
-      const d = unpaid[0];
-      return d.toISOString().slice(0,10);
-    }
-
-    // ---- LOGIN / SIGNUP SCREEN ----
     if (!user) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-purple-600 to-pink-500 p-6">
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl p-6 md:p-10">
-            <div className="mb-6 flex items-center justify-between">
-              <h1 className="text-2xl md:text-3xl font-bold">EMI Dashboard</h1>
-              <div className="text-sm text-gray-500">{modeSignup ? "Create account" : "Welcome back"}</div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                placeholder="Username"
-                value={form.username}
-                onChange={e => setForm({...form, username: e.target.value})}
-                className="p-3 border rounded-lg"
-              />
-              {modeSignup && (
-                <input
-                  placeholder="Email"
-                  type="email"
-                  value={form.email}
-                  onChange={e => setForm({...form, email: e.target.value})}
-                  className="p-3 border rounded-lg"
-                />
+          <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg">
+            <h1 className="text-2xl font-bold mb-4 text-center">{isSignup ? "Create Account" : "Login"}</h1>
+            <div className="space-y-3">
+              <input placeholder="Username" value={form.username} onChange={e=>setForm({...form, username:e.target.value})} className="w-full border p-3 rounded"/>
+              {isSignup && (
+                <>
+                  <input placeholder="Full Name" value={form.name} onChange={e=>setForm({...form, name:e.target.value})} className="w-full border p-3 rounded"/>
+                  <input placeholder="Email" value={form.email} onChange={e=>setForm({...form, email:e.target.value})} className="w-full border p-3 rounded"/>
+                  <input placeholder="Phone" value={form.phone} onChange={e=>setForm({...form, phone:e.target.value})} className="w-full border p-3 rounded"/>
+                  <input placeholder="Bank Name" value={form.bankName} onChange={e=>setForm({...form, bankName:e.target.value})} className="w-full border p-3 rounded"/>
+                  <input placeholder="Account Number" value={form.accountNumber} onChange={e=>setForm({...form, accountNumber:e.target.value})} className="w-full border p-3 rounded"/>
+                </>
               )}
-              {modeSignup && (
-                <input
-                  placeholder="Full name"
-                  value={form.name}
-                  onChange={e => setForm({...form, name: e.target.value})}
-                  className="p-3 border rounded-lg"
-                />
+              <input type="password" placeholder="Password" value={form.password} onChange={e=>setForm({...form, password:e.target.value})} className="w-full border p-3 rounded"/>
+              {isSignup && (
+                <input type="password" placeholder="Confirm Password" value={form.confirm} onChange={e=>setForm({...form, confirm:e.target.value})} className="w-full border p-3 rounded"/>
               )}
-              {modeSignup && (
-                <input
-                  placeholder="Phone (optional)"
-                  value={form.phone}
-                  onChange={e => setForm({...form, phone: e.target.value})}
-                  className="p-3 border rounded-lg"
-                />
-              )}
-              {modeSignup && (
-                <input
-                  placeholder="Bank name (optional)"
-                  value={form.bankName}
-                  onChange={e => setForm({...form, bankName: e.target.value})}
-                  className="p-3 border rounded-lg"
-                />
-              )}
-              {modeSignup && (
-                <input
-                  placeholder="Account number (optional)"
-                  value={form.accountNumber}
-                  onChange={e => setForm({...form, accountNumber: e.target.value})}
-                  className="p-3 border rounded-lg"
-                />
-              )}
-              <input
-                placeholder="Password"
-                type="password"
-                value={form.password}
-                onChange={e => setForm({...form, password: e.target.value})}
-                className="p-3 border rounded-lg"
-              />
-              {modeSignup && (
-                <input
-                  placeholder="Confirm password"
-                  type="password"
-                  value={form.confirm}
-                  onChange={e => setForm({...form, confirm: e.target.value})}
-                  className="p-3 border rounded-lg"
-                />
-              )}
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={modeSignup ? handleSignup : handleLogin}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-semibold"
-              >
-                {modeSignup ? "Sign up & Continue" : "Login"}
+              <button onClick={isSignup ? handleSignup : handleLogin} className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-3 rounded font-semibold">
+                {isSignup ? "Sign Up" : "Login"}
               </button>
-              <button
-                onClick={() => { setModeSignup(!modeSignup); setForm({username:"",password:"",name:"",email:"",phone:"",bankName:"",accountNumber:"",confirm:""}); }}
-                className="px-4 py-3 border rounded-xl text-sm"
-              >
-                {modeSignup ? "Back to Login" : "Create account"}
+              <button onClick={()=>setIsSignup(!isSignup)} className="text-sm text-purple-600 underline block text-center">
+                {isSignup ? "Already have an account? Login" : "New user? Sign up"}
               </button>
             </div>
-
-            <p className="text-xs text-gray-400 mt-4">
-              This is a local demo — credentials are stored in your browser only (localStorage).
-            </p>
           </div>
         </div>
       );
     }
 
-    // ---- DASHBOARD (user is logged in) ----
-
-    const totalEMIs = (user.emis || []).length;
-    const paidCount = (user.emis || []).filter(e => e.paid).length;
-    const remainingCount = totalEMIs - paidCount;
-    const lastEmiAmount = (user.emis && user.emis.length>0) ? user.emis[0].emi : 0;
-    const currentRisk = (user.emis && user.emis.length>0) ? user.emis[0].risk : "Not evaluated";
-    const upcomingDue = nextDueDate();
-
-    // local state for predictor inputs (per-page)
-    const [income, setIncome] = useState("");
-    const [emiAmt, setEmiAmt] = useState("");
-    const [salDate, setSalDate] = useState("");
-    const [dueDate, setDueDate] = useState("");
-    const [lastPrediction, setLastPrediction] = useState(null);
-
-    function submitPredict() {
-      if (!income || !emiAmt || !salDate || !dueDate) return alert("Fill all fields");
-      const { risk } = computeRisk(income, emiAmt, salDate, dueDate);
-      const entry = addEMIEntry(income, emiAmt, salDate, dueDate);
-      setLastPrediction(risk);
-      setIncome(""); setEmiAmt(""); setSalDate(""); setDueDate("");
-      alert("EMI added. Risk: " + risk);
-    }
+    const emis = user.emis || [];
+    const total = emis.length;
+    const paid = emis.filter(e=>e.paid).length;
+    const remaining = total - paid;
+    const lastAmt = emis[0]?.emi || 0;
+    const risk = emis[0]?.risk || "—";
+    const nextDue = emis.filter(e=>!e.paid).map(e=>e.dueDate).sort()[0] || "—";
 
     return (
-      <div className="min-h-screen flex flex-col">
-        {/* header */}
-        <header className="bg-gradient-to-r from-purple-600 to-pink-500 text-white px-8 py-6 shadow">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Welcome, {user.name || user.username} 👋</h2>
-              <p className="text-sm text-white/90">Smart financial management</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleLogout}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+      <div className="min-h-screen">
+        <header className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-6 flex justify-between">
+          <h2 className="font-bold text-xl">Welcome, {user.name}</h2>
+          <button onClick={logout} className="bg-white/20 px-4 py-2 rounded">Logout</button>
         </header>
 
-        {/* nav */}
-        <nav className="mt-6">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="bg-white rounded-2xl shadow p-2 flex gap-2">
-              {["home","reminders","topup","profile"].map(tab => (
-                <button
-                  key={tab}
-                  onClick={()=> setModeSignup(false) || setForm(f=>f) || setTab(tab)}
-                  className={"flex-1 py-3 rounded-xl text-sm font-medium " + (tab=== (window.currentTab || "home") ? "bg-gradient-to-r from-purple-600 to-pink-500 text-white" : "text-gray-600")}
-                >
-                  {tab==="home" && "🏠 Home"}
-                  {tab==="reminders" && "🔔 Reminders"}
-                  {tab==="topup" && "📈 Top-Up"}
-                  {tab==="profile" && "👤 Profile"}
-                </button>
-              ))}
-            </div>
+        <div className="max-w-5xl mx-auto mt-6 px-4">
+          <div className="flex gap-2 mb-6">
+            {["home","reminders","profile"].map(t=>(
+              <button key={t} onClick={()=>setTab(t)} className={`flex-1 py-3 rounded-xl ${tab===t?"bg-purple-600 text-white":"bg-white text-gray-600 border"}`}>
+                {t==="home"?"🏠 Home":t==="reminders"?"🔔 Reminders":"👤 Profile"}
+              </button>
+            ))}
           </div>
-        </nav>
 
-        {/* content */}
-        <main className="flex-1 mt-8">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* left: predictor or reminders/profile view */}
-              <div className="lg:col-span-2">
-                {/* show Home / Reminders / Topup / Profile based on tab state stored in local UI state */}
-                <PageRouter
-                  tabGetter={() => window.currentTab || "home"}
-                  setTab={(t)=>{ window.currentTab = t; /* force re-render via small trick */ setIncome(i=>i); }}
-                  user={user}
-                  submitPredict={submitPredict}
-                  income={income}
-                  setIncome={setIncome}
-                  emiAmt={emiAmt}
-                  setEmiAmt={setEmiAmt}
-                  salDate={salDate}
-                  setSalDate={setSalDate}
-                  dueDate={dueDate}
-                  setDueDate={setDueDate}
-                  lastPrediction={lastPrediction}
-                  currentRisk={currentRisk}
-                />
+          {tab==="home" && (
+            <div className="bg-white rounded-xl shadow p-6">
+              <h3 className="text-lg font-semibold mb-3">Add EMI & Predict Risk</h3>
+              <div className="grid md:grid-cols-2 gap-3">
+                <input placeholder="Monthly Income" type="number" id="inc" className="border p-2 rounded"/>
+                <input placeholder="EMI Amount" type="number" id="emi" className="border p-2 rounded"/>
+                <input type="date" id="sal" className="border p-2 rounded"/>
+                <input type="date" id="due" className="border p-2 rounded"/>
               </div>
-
-              {/* right: summary cards */}
-              <aside>
-                <div className="bg-white rounded-2xl shadow p-5 space-y-4">
-                  <h3 className="font-semibold text-lg">Summary</h3>
-                  <div className="grid gap-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600">Total EMIs</div>
-                      <div className="text-xl font-bold">{totalEMIs}</div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600">Paid</div>
-                      <div className="text-xl font-bold">{paidCount}</div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600">Remaining</div>
-                      <div className="text-xl font-bold">{remainingCount}</div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600">Last EMI Amount</div>
-                      <div className="text-xl font-bold">₹{lastEmiAmount}</div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <h4 className="text-sm font-medium text-gray-700">Risk Status</h4>
-                    <p className="mt-2 text-sm">Current: <strong>{currentRisk}</strong></p>
-                    <p className="text-sm">Next due: <strong>{upcomingDue || "—"}</strong></p>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <h4 className="text-sm font-medium text-gray-700">Bank</h4>
-                    <p className="mt-1 text-sm">{user.bankName || "—"}</p>
-                    <p className="text-sm">{maskAccount(user.accountNumber)}</p>
-                  </div>
-                </div>
-              </aside>
+              <button
+                onClick={()=>{
+                  const i=document.getElementById("inc").value, e=document.getElementById("emi").value, s=document.getElementById("sal").value, d=document.getElementById("due").value;
+                  if(!i||!e||!s||!d)return alert("Fill all fields");
+                  addEmi(i,e,s,d);
+                  alert("EMI added!");
+                }}
+                className="mt-4 bg-purple-600 text-white px-6 py-2 rounded"
+              >Predict & Save</button>
             </div>
-          </div>
-        </main>
-      </div>
-    );
-  } // end App
+          )}
 
-  // PageRouter component displays Home/Reminders/Topup/Profile as requested
-  function PageRouter(props) {
-    const tab = window.currentTab || "home";
-    const {
-      user, submitPredict,
-      income, setIncome, emiAmt, setEmiAmt, salDate, setSalDate, dueDate, setDueDate,
-      lastPrediction, currentRisk
-    } = props;
-
-    // Forcing React to re-evaluate when window.currentTab changes (simple approach)
-    const [, force] = React.useState(0);
-    React.useEffect(()=>{ const id = setInterval(()=>force(n=>n+1), 1000); return ()=>clearInterval(id); }, []);
-
-    const renderHome = () => (
-      <div className="bg-white rounded-2xl shadow p-8">
-        <h2 className="text-2xl font-bold mb-2">EMI Risk Predictor</h2>
-        <p className="text-sm text-gray-500 mb-6">Predict EMI repayment risk — results are saved to your account.</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Monthly Income (₹)</label>
-            <input type="number" value={income} onChange={e=>setIncome(e.target.value)} className="w-full p-3 border rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">EMI Amount (₹)</label>
-            <input type="number" value={emiAmt} onChange={e=>setEmiAmt(e.target.value)} className="w-full p-3 border rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Salary Date</label>
-            <input type="date" value={salDate} onChange={e=>setSalDate(e.target.value)} className="w-full p-3 border rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">EMI Due Date</label>
-            <input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} className="w-full p-3 border rounded-lg" />
-          </div>
-        </div>
-
-        <div className="mt-6 text-center">
-          <button onClick={submitPredict} className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl">🔮 Predict Risk</button>
-        </div>
-
-        {lastPrediction && <div className="mt-4 text-center">Last added EMI risk: <strong>{lastPrediction}</strong></div>}
-      </div>
-    );
-
-    const renderReminders = () => {
-      const users = getUsers();
-      const u = users[user.username] || { emis: [] };
-      return (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h3 className="text-xl font-semibold mb-4">EMI Reminders</h3>
-          {(!u.emis || u.emis.length === 0) ? (
-            <p className="text-gray-500">No EMIs recorded yet — add one from Home.</p>
-          ) : (
-            <div className="space-y-3">
-              {u.emis.map(e => (
-                <div key={e.id} className="p-4 border rounded-lg flex justify-between items-start">
-                  <div>
-                    <div className="text-sm text-gray-600">EMI: ₹{e.emi} • Risk: <strong>{e.risk}</strong></div>
-                    <div className="text-sm text-gray-500">Due: {e.dueDate} • Salary: {e.salaryDate}</div>
-                    <div className="text-sm text-gray-500 mt-2">Status: {e.paid ? <span className="text-green-600">Paid</span> : <span className="text-red-600">Unpaid</span>}</div>
+          {tab==="reminders" && (
+            <div className="bg-white rounded-xl shadow p-6">
+              <h3 className="font-semibold mb-4">Your EMIs</h3>
+              {emis.length===0 ? <p>No EMIs yet.</p> :
+                emis.map(e=>(
+                  <div key={e.id} className="p-3 border rounded-lg flex justify-between mb-2">
+                    <div>
+                      <p>EMI ₹{e.emi} — Risk: {e.risk}</p>
+                      <p className="text-sm text-gray-500">Due: {e.dueDate}</p>
+                      <p>Status: {e.paid?"✅ Paid":"❌ Unpaid"}</p>
+                    </div>
+                    <button onClick={()=>{
+                      const users=getUsers();const u=users[user.username];
+                      u.emis=u.emis.map(x=>x.id===e.id?{...x,paid:!x.paid}:x);
+                      users[user.username]=u;saveUsers(users);setUser({username:user.username,...u});
+                    }} className="text-sm bg-purple-100 px-3 py-1 rounded">
+                      {e.paid?"Mark Unpaid":"Mark Paid"}
+                    </button>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <button onClick={()=>togglePaid(e.id)} className={"px-3 py-1 rounded " + (e.paid ? "bg-yellow-100" : "bg-green-100")}>{e.paid ? "Mark unpaid" : "Mark paid"}</button>
-                    <button onClick={()=>deleteEntry(e.id)} className="px-3 py-1 rounded bg-red-100 text-red-700">Delete</button>
-                  </div>
-                </div>
-              ))}
+                ))
+              }
+            </div>
+          )}
+
+          {tab==="profile" && (
+            <div className="bg-white rounded-xl shadow p-6">
+              <h3 className="font-semibold mb-4">Profile Overview</h3>
+              <p><strong>Name:</strong> {user.name}</p>
+              <p><strong>Email:</strong> {user.email}</p>
+              <p><strong>Phone:</strong> {user.phone||"—"}</p>
+              <p><strong>Bank:</strong> {user.bankName||"—"}</p>
+              <p><strong>Account:</strong> {maskAccount(user.accountNumber)}</p>
+              <div className="mt-4">
+                <h4 className="font-semibold mb-2">EMI Overview</h4>
+                <p>Total: {total} | Paid: {paid} | Remaining: {remaining}</p>
+                <p>Latest EMI: ₹{lastAmt}</p>
+                <p>Current Risk: {risk}</p>
+                <p>Next Due: {nextDue}</p>
+              </div>
             </div>
           )}
         </div>
-      );
-    };
+      </div>
+    );
+  }
 
-    const renderTopup = () => {
-      const users = getUsers();
-      const u = users[user.username] || { emis: [] };
-      const suggestions = (u.emis || []).filter(e => e.risk === "High" && !e.paid).map(e => ({ emi: e.emi, suggestion: Math.round(e.emi*0.3), due: e.dueDate }));
-      return (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h3 className="text-xl font-semibold mb-4">Top-Up Suggestions</h3>
-          {suggestions.length === 0 ? <p className="text-gray-500">No top-up suggestions currently.</p> :
-            <div className="space-y-3">
-              {suggestions.map((s,i) => (
-                <div key={i} className="p-3 border rounded-lg">
-                  <div className="text-sm">EMI ₹{s.emi} — Suggested Top-up: <strong>₹{s.suggestion}</strong></div>
-                  <div className="text-sm text-gray-500">Due {s.due}</div>
-                </div>
-              ))}
-            </div>
-          }
-        </div>
-      );
-    };
-
-    const renderProfile = () => {
-      const users = getUsers();
-      const u = users[user.username] || {};
-      const total = (u.emis||[]).length;
-      const paid = (u.emis||[]).filter(x=>x.paid).length;
-      const remaining = total - paid;
-      const emiAmt = (u.emis && u.emis.length>0) ? u.emis[0].emi : 0;
-      const risk = (u.emis && u.emis.length>0) ? u.emis[0].risk : "Not evaluated";
-      const nextDue = (u.emis || []).filter(e=>!e.paid).map(e=>e.dueDate).sort()[0] || "Not set";
-
-      return (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h3 className="text-xl font-semibold mb-4">Profile Overview</h3>
-
-          <div className="mb-4">
-            <h4 className="font-medium">User Details</h4>
-            <p>Name: {u.name || user.username}</p>
-            <p>Email: {u.email || "—"}</p>
-            <p>Phone: {u.phone || "—"}</p>
-          </div>
-
-          <div className="mb-4">
-            <h4 className="font-medium">Bank Details</h4>
-            <p>Bank Name: {u.bankName || "—"}</p>
-            <p>Account: {maskAccount(u.accountNumber)}</p>
-          </div>
-
-          <div className="mb-4">
-            <h4 className="font-medium">EMI Overview</h4>
-            <p>Total EMIs: {total}</p>
-            <p>Paid: {paid}</p>
-            <p>Remaining: {remaining}</p>
-            <p>EMI Amount (latest): ₹{emiAmt}</p>
-          </div>
-
-          <div>
-            <h4 className="font-medium">Risk Status</h4>
-            <p>Current Risk Level: {risk}</p>
-            <p>Next Due Date: {nextDue}</p>
-          </div>
-        </div>
-      );
-    };
-
-    // helpers from outer scope:
-    function togglePaid(id) { const users = getUsers(); const u = users[user.username]; if(!u) return; u.emis = u.emis.map(e=> e.id===id ? {...e, paid: !e.paid} : e); users[user.username]=u; saveUsers(users); window.location.reload(); }
-    function deleteEntry(id) { const users = getUsers(); const u = users[user.username]; if(!u) return; u.emis = u.emis.filter(e=> e.id!==id); users[user.username]=u; saveUsers(users); window.location.reload(); }
-
-    if (tab === "home") return renderHome();
-    if (tab === "reminders") return renderReminders();
-    if (tab === "topup") return renderTopup();
-    return renderProfile();
-  } // end PageRouter
-
-  // Render
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
